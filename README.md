@@ -28,6 +28,25 @@ docker logs --tail 10 my-counter-container
 ```
 # 6 баллов
 
+compose.yaml:
+```sh
+services:
+  app:
+    build: .
+    container_name: my-counter-container
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      STORAGE: sqlite
+      DATA_FILE: /data/counter.db
+      GREETING: "${GREETING:-Default greeting}"
+    volumes:
+      - counter-data:/data
+
+volumes:
+  counter-data:
+```
+
 После выполнения следующих команд:
 ```sh
 docker compose up --build -d
@@ -60,7 +79,47 @@ my-counter-container  | 2026-11-10 16:17:08,896 http 172.18.0.1 "GET / HTTP/1.1"
 ```
 
 # 8 баллов
-в compose.yaml добавли редис, хэлсчек апп и редис, поднимаем сервис и тестим:
+в compose.yaml добавли редис, хэлсчек апп и редис:
+```sh
+services:
+  app:
+    build: .
+    container_name: my-counter-container
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      STORAGE: redis
+      REDIS_URL: redis://redis:6379/0
+      DATA_FILE: /data/counter.db
+      GREETING: "${GREETING:-Default greeting}"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:${APP_PORT:-8000}/healthz', timeout=2)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+volumes:
+  redis-data:
+```
+Тестим:
 ```sh
 $ docker compose up -d --build
 ...
