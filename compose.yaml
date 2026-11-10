@@ -1,0 +1,16 @@
+
+services:
+  app:
+    build: .
+    container_name: my-counter-container
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      STORAGE: sqlite
+      DATA_FILE: /data/counter.db
+      GREETING: "${GREETING:-Default greeting}"
+    volumes:
+      - counter-data:/data
+
+volumes:
+  counter-data:
