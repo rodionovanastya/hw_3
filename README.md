@@ -58,3 +58,42 @@ my-counter-container  | 2026-11-10 16:16:02,435 http 172.18.0.1 "POST /increment
 my-counter-container  | 2026-11-10 16:16:50,366 listening port=8000 storage=sqlite
 my-counter-container  | 2026-11-10 16:17:08,896 http 172.18.0.1 "GET / HTTP/1.1" 200 -
 ```
+
+# 8 баллов
+в compose.yaml добавли редис, хэлсчек апп и редис, поднимаем сервис и тестим:
+```sh
+$ docker compose up -d --build
+...
+$ curl http://127.0.0.1:8080/readyz
+{"status": "ready", "storage": "redis"}
+$ curl -X POST http://127.0.0.1:8080/increment (3 раза)
+{"greeting": "My env greeting", "count": 3, "hostname": "ba26324b1512", "storage": "redis"}
+$ docker compose down
+...
+$ docker compose up -d
+...
+$ curl http://127.0.0.1:8080/
+{"greeting": "My env greeting", "count": 3, "hostname": "f531c59d83f6", "storage": "redis"}  # то есть N сохранилось
+$ docker compose stop redis # отключаем редис
+...
+$ curl http://127.0.0.1:8080/healthz 
+{"status": "alive"} # приложение работает
+$ curl http://127.0.0.1:8080/readyz
+{"error": "storage_unavailable"} # бд не работает
+$ curl -X POST http://127.0.0.1:8080/increment
+{"error": "storage_unavailable"} # инкремент не работает
+$ docker compose start redis
+...
+$ curl http://127.0.0.1:8080/
+{"greeting": "My env greeting", "count": 3, "hostname": "f531c59d83f6", "storage": "redis"} # запускаем обратно редис, всё сохранилось
+$ curl -X POST http://127.0.0.1:8080/increment
+{"greeting": "My env greeting", "count": 4, "hostname": "f531c59d83f6", "storage": "redis"}
+```
+Логи, когда redis был отключен:
+```sh
+my-counter-container  | 2026-11-10 16:39:58,471 storage_unavailable: ConnectionError
+my-counter-container  | 2026-11-10 16:39:58,471 http 172.18.0.1 "GET /readyz HTTP/1.1" 503 -
+my-counter-container  | 2026-11-10 16:40:06,715 http 127.0.0.1 "GET /healthz HTTP/1.1" 200 -
+my-counter-container  | 2026-11-10 16:40:11,311 storage_unavailable: ConnectionError
+my-counter-container  | 2026-11-10 16:40:11,311 http 172.18.0.1 "POST /increment HTTP/1.1" 503 -
+```
